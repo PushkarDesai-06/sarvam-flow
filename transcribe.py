@@ -8,7 +8,7 @@ from sarvamai import SarvamAI
 def load_env(path: Path = Path(__file__).with_name(".env")) -> None:
     if not path.exists():
         return
-    for line in path.read_text().splitlines():
+    for line in path.read_text(encoding="utf-8-sig").splitlines():
         key, sep, value = line.partition("=")
         if sep and not key.strip().startswith("#"):
             os.environ.setdefault(key.strip(), value.strip())
