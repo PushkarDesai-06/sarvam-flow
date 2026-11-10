@@ -4,3 +4,5 @@ __pycache__/
 *.wav
 !assets/sounds/recording-started.wav
 !assets/sounds/recording-stopped.wav
+build/
+dist/

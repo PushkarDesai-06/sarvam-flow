@@ -5,7 +5,10 @@ from pathlib import Path
 from sarvamai import SarvamAI
 
 
-def load_env(path: Path = Path(__file__).with_name(".env")) -> None:
+def load_env(path: Path | None = None) -> None:
+    if path is None:
+        base = Path(sys.executable) if getattr(sys, "frozen", False) else Path(__file__)
+        path = base.with_name(".env")
     if not path.exists():
         return
     for line in path.read_text(encoding="utf-8-sig").splitlines():

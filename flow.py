@@ -45,11 +45,11 @@ def to_wav(pcm: bytes) -> io.BytesIO:
     return buffer
 
 
-def transcribe_pcm(pcm: bytes) -> str:
+def transcribe_pcm(pcm: bytes, mode: str = MODE, language_code: str = LANGUAGE_CODE) -> str:
     chunk_size = MAX_CHUNK_SECONDS * BYTES_PER_SECOND
     chunks = (pcm[i : i + chunk_size] for i in range(0, len(pcm), chunk_size))
     texts = (
-        transcribe(("speech.wav", to_wav(chunk), "audio/wav"), MODE, language_code=LANGUAGE_CODE)[0]
+        transcribe(("speech.wav", to_wav(chunk), "audio/wav"), mode, language_code=language_code)[0]
         for chunk in chunks
     )
     return " ".join(text.strip() for text in texts if text).strip()
@@ -72,12 +72,22 @@ class Recorder:
             dtype="int16",
             callback=lambda data, *_: self.frames.append(bytes(data)),
         )
-        self.stream.start()
+        try:
+            self.stream.start()
+        except Exception:
+            self.stream.close()
+            self.stream = None
+            raise
 
     def stop(self) -> bytes:
-        self.stream.stop()
-        self.stream.close()
+        stream = self.stream
         self.stream = None
+        if stream is None:
+            return b""
+        try:
+            stream.stop()
+        finally:
+            stream.close()
         return b"".join(self.frames)
 
 

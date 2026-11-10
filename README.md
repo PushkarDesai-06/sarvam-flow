@@ -2,7 +2,15 @@
 
 Push-to-talk dictation for Windows, powered by [Sarvam AI](https://docs.sarvam.ai) speech to text. Hold **Right Ctrl**, speak, release, and the text is typed into whatever window has focus. Dictation defaults to Marathi using standard transcription in the native script.
 
-## Requirements
+## Download the Windows app
+
+Once a version is published, download `SarvamFlow.exe` from [GitHub Releases](https://github.com/PushkarDesai-06/sarvam-flow/releases). Open it, paste your own Sarvam API key into **Your Sarvam API key**, then click **Use key** or press Enter. Python and a `.env` file are not required for the packaged app.
+
+The key is masked, cleared from the textbox after use, and kept in memory for that session. Enter it again after reopening the app. You can replace an existing key while idle. Keys are never included in the build or uploaded by CI. An optional `.env` beside the executable is also supported.
+
+For builds that have not been released yet, open a successful **Windows app** run in [Actions](https://github.com/PushkarDesai-06/sarvam-flow/actions), download the `SarvamFlow-windows-x64` artifact, and extract it. The download includes the executable and a SHA-256 checksum.
+
+## Requirements for running from source
 
 - Windows 10 or 11 with a microphone
 - [Python 3.10 or newer](https://www.python.org/downloads/windows/) (tick **"Add python.exe to PATH"** in the installer)
@@ -20,7 +28,7 @@ py -m venv .venv
 .venv\Scripts\pip install -r requirements.txt
 ```
 
-Then create a file called `.env` in the `sarvam-flow` folder with your key:
+For the desktop app, you can enter your key in the window. For the console version, or to load a key automatically, create a file called `.env` in the `sarvam-flow` folder:
 
 ```powershell
 Set-Content -Path .env -Value "SARVAM_API_KEY=your_key_here" -Encoding ascii
@@ -28,7 +36,26 @@ Set-Content -Path .env -Value "SARVAM_API_KEY=your_key_here" -Encoding ascii
 
 You can also create it in Notepad. Just make sure it is saved as `.env` and not `.env.txt`. Never commit this file, it is already in `.gitignore`.
 
-## Run
+## Desktop app
+
+Open the native Python desktop window:
+
+```powershell
+.venv\Scripts\python app.py
+```
+
+The interface uses Tkinter, included with the standard Python installer for Windows. No additional GUI packages are required.
+
+- Select the input language and output mode. Defaults are **Marathi** and **Transcribe**; selections apply for this session.
+- Click **Start recording**, speak, then click **Stop recording** to preview the transcript in the window. Click **Copy** to paste it elsewhere.
+- To dictate directly into another app, focus that app, hold **Right Ctrl**, and release. Keep it focused until the text arrives. If Sarvam Flow is focused when the result arrives, the text stays in the preview.
+- The status shows recording, transcription progress, and errors. Start and stop tones still play.
+- The app loads your existing `.env`. You can also enter your own key in **Your Sarvam API key** and click **Use key** or press Enter; this overrides the loaded key for the current session only.
+- Minimize the window to keep using the hotkey. Close it to stop the microphone and hotkey listener. Closing during transcription discards the pending result.
+
+To launch without a console window, use `.venv\Scripts\pythonw app.py` after verifying setup. Do not run the desktop and console versions at the same time, since both listen for Right Ctrl.
+
+## Console version
 
 ```powershell
 .venv\Scripts\python flow.py
@@ -46,7 +73,7 @@ To check that your key and setup work without the microphone, transcribe any WAV
 
 ## Settings
 
-Edit the constants at the top of `flow.py`:
+Use the desktop window's selectors for language and mode. For the console version, edit the constants at the top of `flow.py`:
 
 | Setting | Default | Notes |
 | --- | --- | --- |
@@ -54,9 +81,34 @@ Edit the constants at the top of `flow.py`:
 | `MODE` | `transcribe` | `transcribe` (native script), `translate` (to English), `translit` (romanized), `verbatim`, `codemix` |
 | `LANGUAGE_CODE` | `mr-IN` | Marathi input; set to `unknown` for automatic language detection |
 
-The language setting applies to push-to-talk dictation in `flow.py`. The standalone `transcribe.py` command still auto-detects the input language.
+The standalone `transcribe.py` command still auto-detects the input language.
 
 Recordings longer than 29 seconds are split into chunks, since Sarvam's standard API accepts up to 30 seconds per request.
+
+## CI and releases
+
+`.github/workflows/windows.yml` runs on pushes to `main`, pull requests targeting `main`, manual dispatches, and pushed tags starting with `v`.
+
+1. Run unit tests and a native window smoke test on Windows with Python 3.10 and 3.12.
+2. After tests pass, use Python 3.12 and PyInstaller to build a Windows x64 executable. The spec explicitly bundles the two tones, without `.env` or recordings.
+3. Smoke-test the executable without microphone access, keyboard hooks, or Sarvam requests, then upload it with a checksum as a 14-day Actions artifact.
+4. On a `v*` tag push, publish the same files to a GitHub Release using the built-in `GITHUB_TOKEN`. No repository API key secret is needed.
+
+To publish a version after committing the desired changes:
+
+```powershell
+git tag v0.1.0
+git push origin v0.1.0
+```
+
+Build locally on Windows:
+
+```powershell
+.venv\Scripts\python -m pip install -r requirements-build.txt
+.venv\Scripts\python -m PyInstaller --clean --noconfirm SarvamFlow.spec
+```
+
+The output is `dist\SarvamFlow.exe`. Test source changes with `.venv\Scripts\python -m unittest discover -s tests -v`; test the native window and bundled assets with `.venv\Scripts\python app.py --smoke-test`.
 
 ## Troubleshooting
 
