@@ -1,6 +1,7 @@
 import io
 import threading
 import wave
+from pathlib import Path
 
 import sounddevice as sd
 from pynput import keyboard
@@ -13,6 +14,23 @@ SAMPLE_RATE = 16000
 BYTES_PER_SECOND = SAMPLE_RATE * 2
 MAX_CHUNK_SECONDS = 29
 MIN_SECONDS = 0.3
+SOUNDS_DIR = Path(__file__).resolve().parent / "assets" / "sounds"
+
+
+def play_tone(name: str) -> None:
+    def play() -> None:
+        try:
+            with wave.open(str(SOUNDS_DIR / name), "rb") as audio:
+                with sd.RawOutputStream(
+                    samplerate=audio.getframerate(),
+                    channels=audio.getnchannels(),
+                    dtype="int16",
+                ) as output:
+                    output.write(audio.readframes(audio.getnframes()))
+        except Exception as error:
+            print(f"Could not play recording tone: {error}", flush=True)
+
+    threading.Thread(target=play, daemon=True).start()
 
 
 def to_wav(pcm: bytes) -> io.BytesIO:
@@ -81,11 +99,14 @@ def main() -> None:
     def on_press(key) -> None:
         if key == HOTKEY and not recorder.active:
             recorder.start()
+            play_tone("recording-started.wav")
             print("Listening...", flush=True)
 
     def on_release(key) -> None:
         if key == HOTKEY and recorder.active:
-            threading.Thread(target=deliver, args=(recorder.stop(),), daemon=True).start()
+            pcm = recorder.stop()
+            play_tone("recording-stopped.wav")
+            threading.Thread(target=deliver, args=(pcm,), daemon=True).start()
 
     print("Hold Right Ctrl and speak. Release to type. Ctrl+C here to quit.", flush=True)
     with keyboard.Listener(on_press=on_press, on_release=on_release) as listener:

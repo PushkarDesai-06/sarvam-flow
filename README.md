@@ -36,6 +36,8 @@ You can also create it in Notepad. Just make sure it is saved as `.env` and not 
 
 Keep that window open. Click into any app (Notepad, browser, Slack, etc.), hold **Right Ctrl**, speak, and let go. The transcript appears in the console and gets typed where your cursor is. Press `Ctrl+C` in the console to quit.
 
+A tone plays when recording starts and another when it stops, using the sounds from `claude-dictate` bundled in `assets/sounds`. Use headphones if your microphone picks up the start tone from your speakers. Sound playback failures are reported in the console and do not stop dictation.
+
 To check that your key and setup work without the microphone, transcribe any WAV file:
 
 ```powershell
