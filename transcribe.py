@@ -14,9 +14,13 @@ def load_env(path: Path = Path(__file__).with_name(".env")) -> None:
             os.environ.setdefault(key.strip(), value.strip())
 
 
-def transcribe(audio, mode: str = "transcribe") -> tuple[str, str | None]:
+def transcribe(
+    audio, mode: str = "transcribe", language_code: str = "unknown"
+) -> tuple[str, str | None]:
     client = SarvamAI(api_subscription_key=os.environ["SARVAM_API_KEY"])
-    response = client.speech_to_text.transcribe(file=audio, model="saaras:v4", mode=mode)
+    response = client.speech_to_text.transcribe(
+        file=audio, model="saaras:v4", mode=mode, language_code=language_code
+    )
     return response.transcript, response.language_code
 
 

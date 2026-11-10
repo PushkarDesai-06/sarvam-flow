@@ -1,6 +1,6 @@
 # sarvam-flow
 
-Push-to-talk dictation for Windows, powered by [Sarvam AI](https://docs.sarvam.ai) speech to text. Hold **Right Ctrl**, speak, release, and the text is typed into whatever window has focus. Works with Indian languages and mixed Hindi/English (English words stay in English).
+Push-to-talk dictation for Windows, powered by [Sarvam AI](https://docs.sarvam.ai) speech to text. Hold **Right Ctrl**, speak, release, and the text is typed into whatever window has focus. Dictation defaults to Marathi using standard transcription in the native script.
 
 ## Requirements
 
@@ -51,7 +51,10 @@ Edit the constants at the top of `flow.py`:
 | Setting | Default | Notes |
 | --- | --- | --- |
 | `HOTKEY` | `keyboard.Key.ctrl_r` | Any `pynput` key, e.g. `keyboard.Key.f8` |
-| `MODE` | `codemix` | `transcribe` (native script), `translate` (to English), `translit` (romanized), `verbatim`, `codemix` |
+| `MODE` | `transcribe` | `transcribe` (native script), `translate` (to English), `translit` (romanized), `verbatim`, `codemix` |
+| `LANGUAGE_CODE` | `mr-IN` | Marathi input; set to `unknown` for automatic language detection |
+
+The language setting applies to push-to-talk dictation in `flow.py`. The standalone `transcribe.py` command still auto-detects the input language.
 
 Recordings longer than 29 seconds are split into chunks, since Sarvam's standard API accepts up to 30 seconds per request.
 

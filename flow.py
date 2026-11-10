@@ -9,7 +9,8 @@ from pynput import keyboard
 from transcribe import load_env, transcribe
 
 HOTKEY = keyboard.Key.ctrl_r
-MODE = "codemix"
+MODE = "transcribe"
+LANGUAGE_CODE = "mr-IN"
 SAMPLE_RATE = 16000
 BYTES_PER_SECOND = SAMPLE_RATE * 2
 MAX_CHUNK_SECONDS = 29
@@ -47,7 +48,10 @@ def to_wav(pcm: bytes) -> io.BytesIO:
 def transcribe_pcm(pcm: bytes) -> str:
     chunk_size = MAX_CHUNK_SECONDS * BYTES_PER_SECOND
     chunks = (pcm[i : i + chunk_size] for i in range(0, len(pcm), chunk_size))
-    texts = (transcribe(("speech.wav", to_wav(chunk), "audio/wav"), MODE)[0] for chunk in chunks)
+    texts = (
+        transcribe(("speech.wav", to_wav(chunk), "audio/wav"), MODE, language_code=LANGUAGE_CODE)[0]
+        for chunk in chunks
+    )
     return " ".join(text.strip() for text in texts if text).strip()
 
 
