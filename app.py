@@ -7,7 +7,9 @@ import wave
 from tkinter import ttk
 
 from pynput import keyboard
+from sarvamai.core.api_error import ApiError
 
+from credentials import credential_store, read_key, remove_key, save_key
 from flow import BYTES_PER_SECOND, HOTKEY, MIN_SECONDS, SOUNDS_DIR, Recorder, play_tone, transcribe_pcm
 from transcribe import load_env
 
@@ -108,7 +110,17 @@ class DictationApp:
         self.key_entry.bind("<Return>", lambda event: self.use_key())
         self.key_button = ttk.Button(key_row, text="Use key", command=self.use_key)
         self.key_button.pack(side="right", padx=(8, 0))
-        ttk.Label(body, text="Key entered here is used for this session only.").pack(anchor="w", pady=(5, 0))
+        ttk.Label(body, text="Saved securely on this computer for next time.").pack(anchor="w", pady=(5, 0))
+
+    def restore_key(self):
+        try:
+            key = read_key()
+        except Exception:
+            self.status.set("Could not load your saved key. Enter it below to continue.")
+            return
+        if key:
+            os.environ["SARVAM_API_KEY"] = key
+        self.update_key_status()
 
     def update_key_status(self):
         configured = bool(os.environ.get("SARVAM_API_KEY", "").strip())
@@ -125,7 +137,12 @@ class DictationApp:
         os.environ["SARVAM_API_KEY"] = key
         self.api_key.set("")
         self.update_key_status()
-        self.status.set("Key set for this session. Ready to record.")
+        try:
+            save_key(key)
+        except Exception:
+            self.status.set("Key set for this session, but could not be saved. Re-enter it to retry saving.")
+            return
+        self.status.set("Key saved. Ready to record.")
 
     def on_press(self, key):
         if key == HOTKEY and not self.hotkey_down:
@@ -198,8 +215,27 @@ class DictationApp:
         try:
             text = transcribe_pcm(pcm, mode=mode, language_code=language)
             self.events.put(("result", text))
+        except ApiError as error:
+            body = error.body if isinstance(error.body, dict) else {}
+            detail = body.get("error", {})
+            code = detail.get("code") if isinstance(detail, dict) else None
+            if error.status_code == 403 and code == "invalid_api_key_error":
+                self.events.put(("invalid_key", None))
+            else:
+                self.events.put(("error", "Request failed. Check your credits or try again. Your key was kept."))
         except Exception:
             self.events.put(("error", "Transcription failed. Check your connection, API key and credits."))
+
+    def reject_key(self):
+        os.environ.pop("SARVAM_API_KEY", None)
+        message = "Sarvam rejected your API key. Enter a replacement below."
+        try:
+            remove_key()
+        except Exception:
+            message += " Could not remove the saved key; replace it before reopening."
+        self.update_key_status()
+        self.finish(message)
+        self.key_entry.focus_set()
 
     def type_text(self, text):
         try:
@@ -242,6 +278,8 @@ class DictationApp:
                 self.stop_recording()
             elif event == "result":
                 self.show_result(value)
+            elif event == "invalid_key":
+                self.reject_key()
             elif event in ("error", "done"):
                 self.finish(value)
         self.root.after(50, self.process_events)
@@ -265,6 +303,8 @@ class DictationApp:
 
 
 def smoke_test():
+    if sys.platform == "win32":
+        credential_store()
     root = tk.Tk()
     root.withdraw()
     ui = DictationApp(root, enable_hotkey=False)
@@ -288,7 +328,8 @@ def main():
         return
     load_env()
     root = tk.Tk()
-    DictationApp(root)
+    ui = DictationApp(root)
+    ui.restore_key()
     root.mainloop()
 
 

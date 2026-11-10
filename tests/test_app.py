@@ -3,6 +3,7 @@ import queue
 import sys
 import threading
 import unittest
+from sarvamai.core.api_error import ApiError
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
@@ -13,6 +14,10 @@ with patch.dict(sys.modules, {"pynput": SimpleNamespace(keyboard=SimpleNamespace
 
 class AppTests(unittest.TestCase):
     def setUp(self):
+        for name in ("read_key", "save_key", "remove_key"):
+            patcher = patch.object(app, name)
+            setattr(self, name, patcher.start())
+            self.addCleanup(patcher.stop)
         self.ui = app.DictationApp.__new__(app.DictationApp)
         self.ui.root = MagicMock()
         self.ui.events = queue.Queue()
@@ -41,6 +46,45 @@ class AppTests(unittest.TestCase):
             self.assertEqual(os.environ["SARVAM_API_KEY"], "user-test-key")
         self.ui.api_key.set.assert_called_once_with("")
         self.assertNotIn("user-test-key", self.ui.status.set.call_args.args[0])
+        self.save_key.assert_called_once_with("user-test-key")
+
+    def test_saved_key_restored_on_restart_over_env_file(self):
+        self.read_key.return_value = "saved-test-key"
+        with patch.dict(os.environ, {"SARVAM_API_KEY": "env-test-key"}):
+            self.ui.restore_key()
+            self.assertEqual(os.environ["SARVAM_API_KEY"], "saved-test-key")
+
+    def test_no_saved_key_preserves_environment(self):
+        self.read_key.return_value = None
+        with patch.dict(os.environ, {"SARVAM_API_KEY": "env-test-key"}):
+            self.ui.restore_key()
+            self.assertEqual(os.environ["SARVAM_API_KEY"], "env-test-key")
+
+    def test_storage_failure_does_not_claim_key_was_saved(self):
+        self.ui.api_key.get.return_value = "user-test-key"
+        self.save_key.side_effect = RuntimeError("locked")
+        with patch.dict(os.environ, {}, clear=True):
+            self.ui.use_key()
+            self.assertEqual(os.environ["SARVAM_API_KEY"], "user-test-key")
+        self.assertIn("could not be saved", self.ui.status.set.call_args.args[0])
+
+    def test_rejected_key_is_removed_and_requires_replacement(self):
+        error = ApiError(status_code=403, body={"error": {"code": "invalid_api_key_error"}})
+        with patch.object(app, "transcribe_pcm", side_effect=error), patch.dict(os.environ, {"SARVAM_API_KEY": "bad-test-key"}):
+            self.ui.recognize(b"audio", "transcribe", "mr-IN")
+            self.ui.process_events()
+            self.assertNotIn("SARVAM_API_KEY", os.environ)
+        self.remove_key.assert_called_once()
+
+    def test_non_auth_errors_keep_saved_key(self):
+        for status, code in ((402, "insufficient_quota_error"), (429, "rate_limit_exceeded_error"), (503, "internal_server_error"), (403, "TIER_LIMIT_REACHED")):
+            with self.subTest(status=status):
+                error = ApiError(status_code=status, body={"error": {"code": code}})
+                with patch.object(app, "transcribe_pcm", side_effect=error), patch.dict(os.environ, {"SARVAM_API_KEY": "saved-test-key"}):
+                    self.ui.recognize(b"audio", "transcribe", "mr-IN")
+                    self.ui.process_events()
+                    self.assertEqual(os.environ["SARVAM_API_KEY"], "saved-test-key")
+        self.remove_key.assert_not_called()
 
     def test_blank_key_preserves_current_key(self):
         self.ui.api_key.get.return_value = "  "

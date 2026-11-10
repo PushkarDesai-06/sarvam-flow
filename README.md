@@ -6,7 +6,9 @@ Push-to-talk dictation for Windows, powered by [Sarvam AI](https://docs.sarvam.a
 
 Once a version is published, download `SarvamFlow.exe` from [GitHub Releases](https://github.com/PushkarDesai-06/sarvam-flow/releases). Open it, paste your own Sarvam API key into **Your Sarvam API key**, then click **Use key** or press Enter. Python and a `.env` file are not required for the packaged app.
 
-The key is masked, cleared from the textbox after use, and kept in memory for that session. Enter it again after reopening the app. You can replace an existing key while idle. Keys are never included in the build or uploaded by CI. An optional `.env` beside the executable is also supported.
+The key is masked, cleared from the textbox after use, and saved locally in Windows Credential Manager for your Windows account. It loads automatically next time you open the app. To change it, enter a replacement while idle and click **Use key**. Keys are never included in the build or uploaded by CI. An optional `.env` beside the executable is also supported; a saved key takes precedence.
+
+If Sarvam reports an invalid API key, the app removes the saved key and asks for a replacement. Network errors, empty credits, and rate limits do not erase it. If the credential store is unavailable, the app reports that saving failed and uses the entered key for the current session only.
 
 For builds that have not been released yet, open a successful **Windows app** run in [Actions](https://github.com/PushkarDesai-06/sarvam-flow/actions), download the `SarvamFlow-windows-x64` artifact, and extract it. The download includes the executable and a SHA-256 checksum.
 
@@ -50,7 +52,7 @@ The interface uses Tkinter, included with the standard Python installer for Wind
 - Click **Start recording**, speak, then click **Stop recording** to preview the transcript in the window. Click **Copy** to paste it elsewhere.
 - To dictate directly into another app, focus that app, hold **Right Ctrl**, and release. Keep it focused until the text arrives. If Sarvam Flow is focused when the result arrives, the text stays in the preview.
 - The status shows recording, transcription progress, and errors. Start and stop tones still play.
-- The app loads your existing `.env`. You can also enter your own key in **Your Sarvam API key** and click **Use key** or press Enter; this overrides the loaded key for the current session only.
+- The app restores your saved key automatically, falling back to `.env` if no key is saved. Enter a new key in **Your Sarvam API key** and click **Use key** or press Enter to save a replacement.
 - Minimize the window to keep using the hotkey. Close it to stop the microphone and hotkey listener. Closing during transcription discards the pending result.
 
 To launch without a console window, use `.venv\Scripts\pythonw app.py` after verifying setup. Do not run the desktop and console versions at the same time, since both listen for Right Ctrl.
